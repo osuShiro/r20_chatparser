@@ -131,23 +131,25 @@ def parse_log():
                     #elif child.tag == 'strong':
                         #parsed_message['text'] = parsed_message['text'] + '**' + child.text + '**'
                 parsed_message['text'] = parsed_message['text'] + list(temp.itertext())[-1].strip()
-        elif 'emote' in msg_classes:
-            parsed_message['type'] = 'action'
-            parsed_message['text'] = temp.text_content().strip()
-        elif 'desc' in msg_classes:
-            parsed_message['type'] = 'description'
-            parsed_message['text'] = temp.text_content().strip()
-        elif 'rollresult' in msg_classes:
-            parsed_message['type'] = 'roll'
-            parsed_message['formula'] = temp.find_class('formula')[0].text_content().strip()
-            roll_list = []
-            rolls = temp.find_class('diceroll')
-            for roll in rolls:
-                roll_list.append(roll.find_class('didroll')[0].text_content())
-            parsed_message['rolls'] = ','.join(roll_list)
-            parsed_message['result'] = temp.find_class('rolled')[0].text_content().strip()
         else:
-            continue
+            parsed_message['owner'] = ''
+            if 'emote' in msg_classes:
+                parsed_message['type'] = 'action'
+                parsed_message['text'] = temp.text_content().strip()
+            elif 'desc' in msg_classes:
+                parsed_message['type'] = 'description'
+                parsed_message['text'] = temp.text_content().strip()
+            elif 'rollresult' in msg_classes:
+                parsed_message['type'] = 'roll'
+                parsed_message['formula'] = temp.find_class('formula')[0].text_content().strip()
+                roll_list = []
+                rolls = temp.find_class('diceroll')
+                for roll in rolls:
+                    roll_list.append(roll.find_class('didroll')[0].text_content())
+                parsed_message['rolls'] = ','.join(roll_list)
+                parsed_message['result'] = temp.find_class('rolled')[0].text_content().strip()
+            else:
+                continue
         chatlog.append(parsed_message)
 
     with open('output.txt','w', encoding='utf8') as output:
