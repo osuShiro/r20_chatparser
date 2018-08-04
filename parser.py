@@ -11,6 +11,7 @@ def get_webpage_from_file():
     return html.fromstring(open(filename, 'r', encoding='utf-8').read())
 
 def remove_whitespace(text_list):
+    # removes the masses of unnecessary whitespace around the HTML page
     return ''.join(map(lambda t: re.sub(r'\s+',' ',t),text_list)).strip()
 
 # extract roll details from the inlinerollresult span title
@@ -20,6 +21,69 @@ def get_roll_details(sheet_roll):
 
 def get_text(message):
     return remove_whitespace(message.find_class('sheet-left')[0].itertext()).strip()
+
+def parse_sheet_rolls(sheet_rolls, parsed_message):
+    parsed_message['type'] = 'skill roll'
+    for sheet_roll in sheet_rolls:
+        parsed_message['text'] = get_text(sheet_roll)
+        parsed_message['roll_detail'] = get_roll_details(sheet_roll)
+        # for skill rolls, first cell is the left one and only has "check"
+        # we want the second one for the roll result
+        parsed_message['result'] = sheet_roll.find_class('sheet-roll-cell')[1].text_content().strip()
+        # some skill checks have notes
+        description = sheet_roll.find_class('sheet-roll-description')
+        if description:
+            parsed_message['notes'] = description[0].text_content().strip()
+        else:
+            parsed_message['notes'] = ''
+
+def parse_sheet_attacks(attacks, parsed_message):
+    attack_rolls = []
+    parsed_message['type'] = 'attack'
+    for attack in attacks:
+        # text comes with a ton of whitespace that we need to remove
+        try:
+            parsed_message['text'] = get_text(attack)
+        except:
+            parsed_message['text'] = ''
+        rows = attack.find_class('sheet-roll-row')
+        # last two children are damage type and notes, which we have to treat differently
+        for row in rows[:-2]:
+            attack_roll = {}
+            children = row.getchildren()
+            attack_roll['name'] = children[0].text_content().strip()
+            # extract roll details from the inlinerollresult span title
+            try:
+                attack_roll['roll_detail'] = parsed_message['roll_detail'] = get_roll_details(sheet_roll)
+                # result
+                attack_roll['result'] = children[1].text_content().strip()
+            except:
+                attack_roll['roll_detail'] = ''
+                attack_roll['result'] = ''
+            attack_rolls.append(attack_roll)
+        parsed_message['attacks'] = attack_rolls
+        try:
+            parsed_message['notes'] = rows[-1].text_content().strip()
+        except:
+            parsed_message['notes'] = ''
+
+def parse_spells(spells, parsed_message):
+    parsed_message['type'] = 'spell'
+    for spell in spells:
+        # TODO: remove this terrible hack of a job and handle the spell case properly
+        try:
+            parsed_message['text'] = get_text(spell)
+        except:
+            continue
+
+def parse_abilities(abilities, parsed_message):
+    parsed_message['type'] = 'ability'
+    for ability in abilities:
+        parsed_message['text'] = get_text(ability)
+        try:
+            parsed_message['result'] = ability.find_class('sheet-roll-cell')[1].text_content().strip()
+        except:
+            parsed_message['result'] = ''
 
 def parse_log():
     chatlog=[]
@@ -49,65 +113,13 @@ def parse_log():
             spells = temp.find_class('sheet-rolltemplate-pf_spell')
             abilities = temp.find_class('sheet-rolltemplate-pf_ability')
             if sheet_rolls:
-                parsed_message['type'] = 'skill roll'
-                for sheet_roll in sheet_rolls:
-                    # text comes with a ton of whitespace that we need to remove
-                    parsed_message['text'] = get_text(sheet_roll)
-                    parsed_message['roll_detail'] = get_roll_details(sheet_roll)
-                    # first cell is the left one and only has "check"
-                    # we want the second one for the roll result
-                    parsed_message['result'] = sheet_roll.find_class('sheet-roll-cell')[1].text_content().strip()
-                    # some skill checks have notes
-                    description = sheet_roll.find_class('sheet-roll-description')
-                    if description:
-                        parsed_message['notes'] = description[0].text_content().strip()
-                    else:
-                        parsed_message['notes'] = ''
+                parse_sheet_rolls(sheet_rolls, parsed_message)
             elif attacks:
-                attack_rolls = []
-                parsed_message['type'] = 'attack'
-                for attack in attacks:
-                    # text comes with a ton of whitespace that we need to remove
-                    try:
-                        parsed_message['text'] = get_text(attack)
-                    except:
-                        parsed_message['text'] = ''
-                    rows = attack.find_class('sheet-roll-row')
-                    # last two children are damage type and notes, which we have to treat differently
-                    for row in rows[:-2]:
-                        attack_roll = {}
-                        children = row.getchildren()
-                        attack_roll['name'] = children[0].text_content().strip()
-                        # extract roll details from the inlinerollresult span title
-                        try:
-                            attack_roll['roll_detail'] = parsed_message['roll_detail'] = get_roll_details(sheet_roll)
-                            # result
-                            attack_roll['result'] = children[1].text_content()
-                        except:
-                            attack_roll['roll_detail'] = ''
-                            attack_roll['result'] = ''
-                        attack_rolls.append(attack_roll)
-                    parsed_message['attacks'] = attack_rolls
-                    try:
-                        parsed_message['notes'] = rows[-1].text_content()
-                    except:
-                        parsed_message['notes'] = ''
+                parse_sheet_attacks(attacks, parsed_message)
             elif spells:
-                parsed_message['type'] = 'spell'
-                for spell in spells:
-                    try:
-                        parsed_message['text'] = get_text(spell)
-                    except:
-                        continue
+                parse_spells(spells, parsed_message)
             elif abilities:
-                parsed_message['type'] = 'ability'
-                for ability in abilities:
-                    parsed_message['text'] = get_text(ability)
-                    parsed_message['roll_detail'] = get_roll_details(sheet_roll)
-                    try:
-                        parsed_message['result'] = ability.find_class('sheet-roll-cell')[1].text_content().strip()
-                    except:
-                        parsed_message['result'] = ''
+                parse_abilities(abilities, parsed_message)
             else:
             # the actual text will always be 4th child and onwards
                 parsed_message['type'] = 'message'
