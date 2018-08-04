@@ -16,7 +16,10 @@ def remove_whitespace(text_list):
 # extract roll details from the inlinerollresult span title
 def get_roll_details(sheet_roll):
     roll = sheet_roll.find_class('inlinerollresult')[0]
-    return remove_whitespace(html.fromstring(roll.get('title')).itertext())
+    return remove_whitespace(html.fromstring(roll.get('title')).itertext()).strip()
+
+def get_text(message):
+    return remove_whitespace(message.find_class('sheet-left')[0].itertext()).strip()
 
 def parse_log():
     chatlog=[]
@@ -49,7 +52,7 @@ def parse_log():
                 parsed_message['type'] = 'skill roll'
                 for sheet_roll in sheet_rolls:
                     # text comes with a ton of whitespace that we need to remove
-                    parsed_message['text'] = remove_whitespace(sheet_roll.find_class('sheet-left')[0].itertext())
+                    parsed_message['text'] = get_text(sheet_roll)
                     parsed_message['roll_detail'] = get_roll_details(sheet_roll)
                     # first cell is the left one and only has "check"
                     # we want the second one for the roll result
@@ -66,7 +69,7 @@ def parse_log():
                 for attack in attacks:
                     # text comes with a ton of whitespace that we need to remove
                     try:
-                        parsed_message['text'] = remove_whitespace(attack.find_class('sheet-left')[0].itertext())
+                        parsed_message['text'] = get_text(attack)
                     except:
                         parsed_message['text'] = ''
                     rows = attack.find_class('sheet-roll-row')
@@ -93,13 +96,13 @@ def parse_log():
                 parsed_message['type'] = 'spell'
                 for spell in spells:
                     try:
-                        parsed_message['text'] = remove_whitespace(spell.find_class('sheet-left')[0].itertext()).strip()
+                        parsed_message['text'] = get_text(spell)
                     except:
                         continue
             elif abilities:
                 parsed_message['type'] = 'ability'
                 for ability in abilities:
-                    parsed_message['text'] = remove_whitespace(ability.find_class('sheet-left')[0].itertext()).strip()
+                    parsed_message['text'] = get_text(ability)
                     parsed_message['roll_detail'] = get_roll_details(sheet_roll)
                     try:
                         parsed_message['result'] = ability.find_class('sheet-roll-cell')[1].text_content().strip()
