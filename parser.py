@@ -10,10 +10,13 @@ def get_webpage_from_file():
     filename = filedialog.askopenfilename(title='HTML file to parse')
     return html.fromstring(open(filename, 'r', encoding='utf-8').read())
 
-
 def remove_whitespace(text_list):
     return ''.join(map(lambda t: re.sub(r'\s+',' ',t),text_list)).strip()
 
+# extract roll details from the inlinerollresult span title
+def get_roll_details(sheet_roll):
+    roll = sheet_roll.find_class('inlinerollresult')[0]
+    return remove_whitespace(html.fromstring(roll.get('title')).itertext())
 
 def parse_log():
     chatlog=[]
@@ -40,7 +43,6 @@ def parse_log():
         if 'general' in msg_classes:
             sheet_rolls = temp.find_class('sheet-rolltemplate-pf_generic')
             attacks = temp.find_class('sheet-rolltemplate-pf_attack')
-            defenses = temp.find_class('sheet-rolltemplate-pf_defense')
             spells = temp.find_class('sheet-rolltemplate-pf_spell')
             abilities = temp.find_class('sheet-rolltemplate-pf_ability')
             if sheet_rolls:
@@ -48,9 +50,7 @@ def parse_log():
                 for sheet_roll in sheet_rolls:
                     # text comes with a ton of whitespace that we need to remove
                     parsed_message['text'] = remove_whitespace(sheet_roll.find_class('sheet-left')[0].itertext())
-                    # extract roll details from the inlinerollresult span title
-                    roll = sheet_roll.find_class('inlinerollresult')[0]
-                    parsed_message['roll_detail'] = remove_whitespace(html.fromstring(roll.get('title')).itertext())
+                    parsed_message['roll_detail'] = get_roll_details(sheet_roll)
                     # first cell is the left one and only has "check"
                     # we want the second one for the roll result
                     parsed_message['result'] = sheet_roll.find_class('sheet-roll-cell')[1].text_content().strip()
@@ -77,8 +77,7 @@ def parse_log():
                         attack_roll['name'] = children[0].text_content().strip()
                         # extract roll details from the inlinerollresult span title
                         try:
-                            roll = children[1].find_class('inlinerollresult')
-                            attack_roll['roll_detail'] = remove_whitespace(html.fromstring(roll[0].get('title')).itertext())
+                            attack_roll['roll_detail'] = parsed_message['roll_detail'] = get_roll_details(sheet_roll)
                             # result
                             attack_roll['result'] = children[1].text_content()
                         except:
@@ -101,9 +100,7 @@ def parse_log():
                 parsed_message['type'] = 'ability'
                 for ability in abilities:
                     parsed_message['text'] = remove_whitespace(ability.find_class('sheet-left')[0].itertext()).strip()
-                    roll = ability.find_class('inlinerollresult')
-                    if roll:
-                        parsed_message['roll_detail'] = remove_whitespace(html.fromstring(roll[0].get('title')).itertext())
+                    parsed_message['roll_detail'] = get_roll_details(sheet_roll)
                     try:
                         parsed_message['result'] = ability.find_class('sheet-roll-cell')[1].text_content().strip()
                     except:
