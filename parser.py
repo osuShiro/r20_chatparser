@@ -6,6 +6,11 @@ from time import strptime
 
 # TO DO: DEFENSE ROLLS
 
+# debugging function
+def log_html(tag):
+    with open('log.txt','wb') as logfile:
+        logfile.write(html.tostring(tag, pretty_print=True))
+
 def get_webpage_from_file():
     filename = filedialog.askopenfilename(title='HTML file to parse')
     return html.fromstring(open(filename, 'r', encoding='utf-8').read())
@@ -21,6 +26,24 @@ def get_roll_details(sheet_roll):
 
 def get_text(message):
     return remove_whitespace(message.find_class('sheet-left')[0].itertext()).strip()
+
+def get_message(message, children=[]):
+    # if we hit a leaf of the HTML tree
+    if not message.getchildren() and not children:
+        return remove_whitespace(message.text_content()).strip()
+    # if we've hit a node of last level that still has neighbours
+    elif not message.getchildren() and children:
+        child = children[0]
+        if child.tag == 'strong':
+            return '**' + get_message(child, children[1:]) + '**'
+        elif child.tag == 'em':
+            return '__' + get_message(child, children[1:]) + '__'
+        else:
+            return get_message(child, children[1:])
+    # if the node has children
+    else:
+        children = message.getchildren()
+        return get_message(children[0], children[1:])
 
 def parse_sheet_rolls(sheet_rolls, parsed_message):
     parsed_message['type'] = 'skill roll'
@@ -91,7 +114,6 @@ def parse_log():
     messages_html = get_webpage_from_file().find_class('message')
     print('Parsing chatlog...')
     cur_time = None
-    cur_owner = None
     for msg in messages_html:
         parsed_message = {}
         temp = deepcopy(msg)
@@ -121,16 +143,9 @@ def parse_log():
             elif abilities:
                 parse_abilities(abilities, parsed_message)
             else:
-            # the actual text will always be 4th child and onwards
+            # TODO: handle italic and strong text properly
                 parsed_message['type'] = 'message'
-                parsed_message['text'] = ''
-                # print(list(temp.itertext()))
-                #for child in temp.getchildren():
-                    #if child.tag == 'em':
-                        #parsed_message['text'] = parsed_message['text'] + '*' + child.text + '*'
-                    #elif child.tag == 'strong':
-                        #parsed_message['text'] = parsed_message['text'] + '**' + child.text + '**'
-                parsed_message['text'] = parsed_message['text'] + list(temp.itertext())[-1].strip()
+                parsed_message['text'] = get_message(temp) #or list(temp.itertext())[-1].strip()
         else:
             parsed_message['owner'] = ''
             if 'emote' in msg_classes:
@@ -168,27 +183,37 @@ def split_sessions(chatlog_json):
         os.mkdir('./sessions')
     os.chdir('./sessions')
     cur_date = None
-    output_file = None
     session_log = []
     print('Exporting chatlog...')
     for line in chatlog:
         try:
             timestamp = datetime.datetime.strptime(line['timestamp'], '%B %d, %Y %I:%M%p').replace(hour=0, minute=0)
+            if not cur_date:
+                cur_date = timestamp
         except:
+            # sometimes the timestamp will be missing hours and minutes
+            # but then we don't care since we're only looking at day and month
+            # so the day of the session doesn't change
             timestamp = cur_date
         if timestamp == cur_date:
             session_log.append(line)
         elif timestamp != cur_date:
-            cur_date = timestamp
+            # export chatlog to a text file
             filename = '-'.join([str(cur_date.year), str(cur_date.month).zfill(2), str(cur_date.day).zfill(2)])
-            if output_file:
-                output_file.write(json.dumps(session_log))
-                output_file.close()
-                session_log = []
-                print('Writing ' + filename + '.txt...')
-            output_file = open(filename+'.txt', 'w')
+            print('Writing ' + filename + '.txt...')
+            output_file = open(filename + '.txt', 'w')
+            output_file.write(json.dumps(session_log))
+            output_file.close()
+            # reset log then add the first line
+            cur_date = timestamp
+            session_log = []
+            session_log.append(line)
         else:
             print('Something went wrong with the timestamp.')
+    # export last chatlog that wasn't done in the loop
+    filename = '-'.join([str(timestamp.year), str(timestamp.month).zfill(2), str(timestamp.day).zfill(2)])
+    print('Writing ' + filename + '.txt...')
+    output_file = open(filename + '.txt', 'w')
     output_file.write(json.dumps(session_log))
     output_file.close()
 
