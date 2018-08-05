@@ -27,24 +27,6 @@ def get_roll_details(sheet_roll):
 def get_text(message):
     return remove_whitespace(message.find_class('sheet-left')[0].itertext()).strip()
 
-def get_message(message, children=[]):
-    # if we hit a leaf of the HTML tree
-    if not message.getchildren() and not children:
-        return remove_whitespace(message.text_content()).strip()
-    # if we've hit a node of last level that still has neighbours
-    elif not message.getchildren() and children:
-        child = children[0]
-        if child.tag == 'strong':
-            return '**' + get_message(child, children[1:]) + '**'
-        elif child.tag == 'em':
-            return '__' + get_message(child, children[1:]) + '__'
-        else:
-            return get_message(child, children[1:])
-    # if the node has children
-    else:
-        children = message.getchildren()
-        return get_message(children[0], children[1:])
-
 def parse_sheet_rolls(sheet_rolls, parsed_message):
     parsed_message['type'] = 'skill roll'
     for sheet_roll in sheet_rolls:
@@ -143,9 +125,10 @@ def parse_log():
             elif abilities:
                 parse_abilities(abilities, parsed_message)
             else:
-            # TODO: handle italic and strong text properly
+            # first four children are spacer, avatar, timestamp and owner
+            # which we don't want in the message
                 parsed_message['type'] = 'message'
-                parsed_message['text'] = get_message(temp) #or list(temp.itertext())[-1].strip()
+                parsed_message['text'] = ''.join(list(temp.itertext())[3:]).strip()
         else:
             parsed_message['owner'] = ''
             if 'emote' in msg_classes:
