@@ -15,8 +15,8 @@ def get_webpage_from_file():
     filename = filedialog.askopenfilename(title='HTML file to parse')
     return html.fromstring(open(filename, 'r', encoding='utf-8').read())
 
+# removes the masses of unnecessary whitespace around the HTML page
 def remove_whitespace(text_list):
-    # removes the masses of unnecessary whitespace around the HTML page
     return ''.join(map(lambda t: re.sub(r'\s+',' ',t),text_list)).strip()
 
 # extract roll details from the inlinerollresult span title
@@ -155,6 +155,21 @@ def parse_log():
 
     return json.dumps(chatlog)
 
+def export_dialogue_line(line_dic):
+    if line_dic['type'] == 'message':
+        return line_dic['owner'] + ' ' + line_dic['text']
+    if line_dic['type'] in ('description','action'):
+        return line_dic['text']
+    return ''
+
+def export_dialogue(chatlog_json):
+    print('Exporting dialogue...')
+    chatlog = json.loads(chatlog_json)
+    with open('dialogue.txt','w') as file_output:
+        for line in chatlog:
+            file_output.write(export_dialogue_line(line))
+            file_output.write('\n')
+
 def split_sessions(chatlog_json):
     # filename = filedialog.askopenfilename(title='chatlog output to split')
     chatlog = json.loads(chatlog_json)
@@ -201,4 +216,6 @@ def split_sessions(chatlog_json):
     output_file.close()
 
 
-split_sessions(parse_log())
+chatlog = parse_log()
+split_sessions(chatlog)
+export_dialogue(chatlog)
