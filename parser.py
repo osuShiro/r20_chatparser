@@ -119,6 +119,7 @@ def parse_log():
             attacks = temp.find_class('sheet-rolltemplate-pf_attack')
             spells = temp.find_class('sheet-rolltemplate-pf_spell')
             abilities = temp.find_class('sheet-rolltemplate-pf_ability')
+            defences = temp.find_class('sheet-rolltemplate-pf_defense')
             if sheet_rolls:
                 parse_sheet_rolls(sheet_rolls, parsed_message)
             elif attacks:
@@ -127,6 +128,9 @@ def parse_log():
                 parse_spells(spells, parsed_message)
             elif abilities:
                 parse_abilities(abilities, parsed_message)
+            elif defences:
+                # TODO: proper handling of defence rolls
+                parsed_message['type'] = 'defence'
             else:
                 parsed_message['type'] = 'message'
                 # checking the div for the spacer child to check if it's the first message from a new user
@@ -163,19 +167,21 @@ def parse_log():
 
     return json.dumps(chatlog)
 
-def export_dialogue_line(line_dic):
-    if line_dic['type'] == 'message':
-        return line_dic['owner'] + ' ' + line_dic['text']
-    if line_dic['type'] in ('description','action'):
-        return line_dic['text']
-    return ''
+def export_dialogue_lines(chatlog):
+    lines = []
+    for line_dic in chatlog:
+        if line_dic['type'] == 'message':
+            lines.append(line_dic['owner'] + ': ' + line_dic['text'])
+        if line_dic['type'] in ('description','action'):
+            lines.append(line_dic['text'])
+    return lines
 
 def export_dialogue(chatlog_json):
     print('Exporting dialogue...')
-    chatlog = json.loads(chatlog_json)
-    with open('dialogue.txt','w') as file_output:
-        for line in chatlog:
-            file_output.write(export_dialogue_line(line))
+    lines = export_dialogue_lines(json.loads(chatlog_json))
+    with open('dialogue.txt','w', encoding='utf-8') as file_output:
+        for line in lines:
+            file_output.write(line)
             file_output.write('\n')
 
 def split_sessions(chatlog_json):
