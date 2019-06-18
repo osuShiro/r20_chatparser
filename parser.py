@@ -2,14 +2,17 @@ import re, json, os, datetime, codecs
 from copy import deepcopy
 from lxml import html, etree
 from tkinter import filedialog
+from sys import exit
 from time import strptime
 
 # TO DO: DEFENSE ROLLS
 
 # debugging function
 def log_html(tag):
+    print('Exporting tag as log.txt')
     with open('log.txt','wb') as logfile:
         logfile.write(html.tostring(tag, pretty_print=True))
+    exit()
 
 def get_webpage_from_file():
     filename = filedialog.askopenfilename(title='HTML file to parse')
@@ -125,10 +128,15 @@ def parse_log():
             elif abilities:
                 parse_abilities(abilities, parsed_message)
             else:
-            # first four children are spacer, avatar, timestamp and owner
-            # which we don't want in the message
                 parsed_message['type'] = 'message'
-                parsed_message['text'] = ''.join(list(temp.itertext())[3:]).strip()
+                # checking the div for the spacer child to check if it's the first message from a new user
+                if temp.find_class('spacer'):
+                    # first four children are spacer, avatar, timestamp and owner
+                    # which we don't want in the message
+                    parsed_message['text'] = ''.join(list(temp.itertext())[3:]).strip()
+                # if it's the same user but a new message, they aren't there, and the tag as no children just text
+                else:
+                    parsed_message['text'] = temp.text_content().strip()
         else:
             parsed_message['owner'] = ''
             if 'emote' in msg_classes:
