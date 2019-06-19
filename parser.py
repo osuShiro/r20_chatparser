@@ -62,7 +62,7 @@ def parse_sheet_attacks(attacks, parsed_message):
             attack_roll['name'] = children[0].text_content().strip()
             # extract roll details from the inlinerollresult span title
             try:
-                attack_roll['roll_detail'] = parsed_message['roll_detail'] = get_roll_details(sheet_roll)
+                attack_roll['roll_detail'] = parsed_message['roll_detail'] = get_roll_details(attack)
                 # result
                 attack_roll['result'] = children[1].text_content().strip()
             except:
@@ -74,6 +74,17 @@ def parse_sheet_attacks(attacks, parsed_message):
             parsed_message['notes'] = rows[-1].text_content().strip()
         except:
             parsed_message['notes'] = ''
+            
+            
+def parse_defences(defences, parsed_message):
+    parsed_message['type'] = 'defence'
+    for defence in defences:
+        # extract roll details from the inlinerollresult span title
+        parsed_message['roll_detail'] = get_roll_details(defence)
+        parsed_message['result'] = defence.find_class('sheet-roll-cell')[1].text_content().strip()
+        # text is found in the child with class sheet-left
+        parsed_message['text'] = remove_whitespace([defence.find_class('sheet-left')[0].text_content()])
+    
 
 def parse_spells(spells, parsed_message):
     parsed_message['type'] = 'spell'
@@ -129,8 +140,7 @@ def parse_log():
             elif abilities:
                 parse_abilities(abilities, parsed_message)
             elif defences:
-                # TODO: proper handling of defence rolls
-                parsed_message['type'] = 'defence'
+                parse_defences(defences, parsed_message)
             else:
                 parsed_message['type'] = 'message'
                 # checking the div for the spacer child to check if it's the first message from a new user
